@@ -1,0 +1,109 @@
+FROM ubuntu:22.04
+
+LABEL maintainer="MobileSec Lab"
+LABEL description="Android Security Testing Sandbox Environment"
+
+# Environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV ANDROID_HOME=/opt/android-sdk
+ENV ANDROID_SDK_ROOT=/opt/android-sdk
+ENV ANDROID_EMULATOR_HOME=/opt/emulators
+ENV PATH="${PATH}:${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools:${ANDROID_HOME}/emulator"
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Base utilities
+    ca-certificates \
+    curl \
+    wget \
+    git \
+    vim \
+    nano \
+    sudo \
+    unzip \
+    zip \
+    # Build tools
+    build-essential \
+    cmake \
+    pkg-config \
+    # Android SDK dependencies
+    libc6-i386 \
+    lib32stdc++6 \
+    lib32gcc1 \
+    libncurses5:i386 \
+    libstdc++6:i386 \
+    zlib1g:i386 \
+    # Network tools
+    iproute2 \
+    iputils-ping \
+    net-tools \
+    tcpdump \
+    inetutils-syslogd \
+    # Monitoring tools
+    lsof \
+    strace \
+    inotify-tools \
+    htop \
+    # KVM/QEMU
+    qemu-kvm \
+    libvirt-daemon-system \
+    libvirt-clients \
+    bridge-utils \
+    # Cleanup
+    && rm -rf /var/lib/apt/lists/*
+
+# Create user
+RUN useradd -m -s /bin/bash android && \
+    echo "android ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
+    mkdir -p /opt/android-sdk /opt/emulators /opt/scripts /data && \
+    chown -R android:android /opt /data
+
+# Switch to android user
+USER android
+WORKDIR /home/android
+
+# Install Android SDK command line tools
+RUN mkdir -p ${ANDROID_HOME}/cmdline-tools && \
+    wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O /tmp/cmdline-tools.zip && \
+    unzip -q /tmp/cmdline-tools.zip -d ${ANDROID_HOME}/cmdline-tools && \
+    mv ${ANDROID_HOME}/cmdline-tools/cmdline-tools ${ANDROID_HOME}/cmdline-tools/latest && \
+    rm /tmp/cmdline-tools.zip
+
+# Accept Android SDK licenses
+RUN yes | sdkmanager --licenses
+
+# Install Android SDK components
+RUN sdkmanager "platform-tools" "emulator" && \
+    sdkmanager "platforms;android-33" "platforms;android-31" "platforms;android-30" && \
+    sdkmanager "system-images;android-33;google_apis;x86_64" && \
+    sdkmanager "system-images;android-31;default;x86_64" && \
+    sdkmanager "system-images;android-30;default;x86_64"
+
+# Install Frida
+RUN wget -q https://github.com/frida/frida/releases/download/16.1.4/frida-tools-16.1.4-linux-x86_64.tar.xz -O /tmp/frida-tools.tar.xz && \
+    tar -xf /tmp/frida-tools.tar.xz -C /tmp && \
+    sudo cp /tmp/frida-* /usr/local/bin/ && \
+    rm -rf /tmp/frida*
+
+# Install Objection
+RUN sudo apt-get update && sudo apt-get install -y --no-install-recommends python3 python3-pip && \
+    sudo pip3 install --no-cache-dir objection && \
+    sudo rm -rf /var/lib/apt/lists/*
+
+# Create AVD configurations
+COPY scripts/create_avds.sh /opt/scripts/create_avds.sh
+COPY scripts/healthcheck.sh /opt/scripts/healthcheck.sh
+COPY scripts/start_emulators.sh /opt/scripts/start_emulators.sh
+
+RUN chmod +x /opt/scripts/*.sh
+
+# Set up entrypoint
+COPY entrypoint.sh /entrypoint.sh
+RUN sudo chmod +x /entrypoint.sh
+
+EXPOSE 5554 5555 5556 5557 5558 5559 8080 8081
+
+VOLUME ["/opt/emulators", "/data"]
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["/bin/bash"]

@@ -1,0 +1,102 @@
+version: '3.8'
+
+services:
+  ###########################################################################
+  # Kali Linux 基础环境 - Android 安全测试工具集
+  ###########################################################################
+  kali:
+    build:
+      context: ./kali-base
+      dockerfile: Dockerfile
+    image: mobilesec/kali-base:latest
+    container_name: mobilesec-kali
+    hostname: kali
+    privileged: true  # 访问 USB 设备和网络调试需要
+    network_mode: host  # 直接使用主机网络，便于连接 Android 设备
+    volumes:
+      - ./kali-base/workspace:/workspace
+      - ./lab/vulnapps:/vulnapps
+      - /dev/bus/usb:/dev/bus/usb  # USB 访问
+      - /tmp/.X11-unix:/tmp/.X11-unix  # X11 转发
+    environment:
+      - DISPLAY=$DISPLAY
+      - DEBIAN_FRONTEND=noninteractive
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+  ###########################################################################
+  # MobSF - 移动安全框架
+  ###########################################################################
+  mobsf:
+    image: opensecurity/mobile-security-framework-mobsf:latest
+    container_name: mobilesec-mobsf
+    hostname: mobsf
+    ports:
+      - "9000:8000"
+    volumes:
+      - mobsf-data:/root/.MobSF
+      - ./mobsf/uploads:/app/uploads
+    restart: unless-stopped
+
+  ###########################################################################
+  # Frida - 动态插桩工具
+  ###########################################################################
+  frida:
+    build:
+      context: ./frida
+      dockerfile: Dockerfile
+    image: mobilesec/frida:latest
+    container_name: mobilesec-frida
+    hostname: frida
+    privileged: true
+    network_mode: host
+    volumes:
+      - ./frida/scripts:/workspace/scripts
+      - ./frida/workspace:/workspace
+      - /dev/bus/usb:/dev/bus/usb
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    environment:
+      - DISPLAY=$DISPLAY
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+  ###########################################################################
+  # Redis - 任务队列 (用于扫描平台)
+  ###########################################################################
+  redis:
+    image: redis:7-alpine
+    container_name: mobilesec-redis
+    hostname: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+
+  ###########################################################################
+  # PostgreSQL - 数据库 (用于扫描平台)
+  ###########################################################################
+  postgres:
+    image: postgres:15-alpine
+    container_name: mobilesec-postgres
+    hostname: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=mobilesec
+      - POSTGRES_PASSWORD=mobilesec123
+      - POSTGRES_DB=mobilesec
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  mobsf-data:
+    driver: local
+  redis-data:
+    driver: local
+  postgres-data:
+    driver: local

@@ -1,0 +1,87 @@
+# 日志文件
+*.log
+logs/
+
+# 上传的文件
+scanner/uploads/*
+!scanner/uploads/.gitkeep
+
+# 工作目录
+kali-base/workspace/*
+frida/workspace/*
+!kali-base/workspace/.gitkeep
+!frida/workspace/.gitkeep
+
+# Docker volumes (本地挂载目录)
+volumes/
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+
+# 虚拟环境
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# 敏感配置
+.env
+.env.local
+.env.*.local
+config/local.py
+config/secrets.json
+
+# 扫描输出
+scanner/output/
+scanner/results/
+
+# 漏洞应用
+lab/vulnapps/*
+!lab/vulnapps/.gitkeep
+
+# Node modules
+web/frontend/node_modules/
+web/backend/node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# SQLite
+*.sqlite
+*.sqlite3
+*.db

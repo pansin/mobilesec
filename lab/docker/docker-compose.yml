@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  sandbox:
+    build:
+      context: .
+      dockerfile: Dockerfile.sandbox
+    container_name: mobilesec-sandbox
+    hostname: sandbox
+    privileged: true
+    devices:
+      - /dev/kvm
+    ports:
+      - "5554:5554"
+      - "5555:5555"
+      - "5556:5556"
+      - "5557:5557"
+      - "5558:5558"
+      - "5559:5559"
+      - "8080:8080"
+      - "8081:8081"
+    volumes:
+      - ./emulators:/opt/emulators
+      - ./scripts:/opt/scripts
+      - ../vulnapps:/opt/vulnapps:ro
+      - sandbox-data:/data
+    networks:
+      - sandbox-net
+    environment:
+      - ANDROID_HOME=/opt/android-sdk
+      - ANDROID_EMULATOR_HOME=/opt/emulators
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/opt/scripts/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  burp:
+    image: owasp/zap2docker-stable:latest
+    container_name: mobilesec-burp
+    hostname: burp
+    ports:
+      - "8082:8080"
+      - "8090:8090"
+    networks:
+      - sandbox-net
+    volumes:
+      - burp-data:/zap/wrk
+    restart: unless-stopped
+
+  wireshark:
+    image: linuxserver/wireshark:latest
+    container_name: mobilesec-wireshark
+    hostname: wireshark
+    privileged: true
+    network_mode: service:sandbox
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+    volumes:
+      - wireshark-data:/config
+      - ./captures:/captures
+    restart: unless-stopped
+
+networks:
+  sandbox-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  sandbox-data:
+  burp-data:
+  wireshark-data:
